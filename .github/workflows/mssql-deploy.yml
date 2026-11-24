@@ -1,0 +1,32 @@
+# 1. NAZWA PIPELINE'U widoczna w zakładce Actions
+name: MS SQL Deploy
+
+# 2. WYZWALACZE (TRIGGERS) - kiedy pipeline ma wystartować
+on:
+  workflow_dispatch:      # Pozwala kliknąć "Run workflow" ręcznie w przeglądarce
+  push:                   # Uruchamia się automatycznie po wrzuceniu zmian (git push)
+    branches:
+      - main              # Tylko na gałęzi main
+    paths:
+      - 'deploy/**'       # I tylko wtedy, gdy zmieniło się coś w folderze deploy
+
+# 3. ZADANIA (JOBS) - co ma być zrobione i na jakiej maszynie
+jobs:
+  deploy-database:
+    # Wskazuje, że zadanie ma wykonać Twój własny agent Windows w firmie/domu
+    runs-on: [self-hosted, windows-mssql]
+
+    # 4. KROKI (STEPS) - wykonywane po kolei od góry do dołu
+    steps:
+      - name: Pobranie plikow z repozytorium
+        uses: actions/checkout@v4
+
+      - name: Odpalenie paczki instalacyjnej (.bat)
+        shell: cmd
+        run: |
+          call deploy\install.bat "${{ secrets.SQL_SERVER }}" "${{ secrets.SQL_DB }}" "${{ secrets.SQL_USER }}" "${{ secrets.SQL_PASS }}"
+
+      - name: Sprawdzenie czy instalacja sie udala
+        shell: cmd
+        run: |
+          sqlcmd -S "${{ secrets.SQL_SERVER }}" -d "${{ secrets.SQL_DB }}" -U "${{ secrets.SQL_USER }}" -P "${{ secrets.SQL_PASS }}" -b -i "deploy\verify.sql"
